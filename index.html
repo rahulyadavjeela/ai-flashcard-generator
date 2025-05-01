@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Flashcard Generator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .input-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-family: inherit;
+        }
+        button {
+            background: #4361ee;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #3a0ca3;
+        }
+        button:disabled {
+            background: #adb5bd;
+            cursor: not-allowed;
+        }
+        .flashcard {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+        .flashcard h3 {
+            color: #2b2d42;
+            margin-bottom: 15px;
+        }
+        .flashcard-answer {
+            display: none;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+        .show-answer {
+            background: #4895ef;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .status {
+            margin: 15px 0;
+            font-weight: 500;
+        }
+        .error {
+            color: #e63946;
+            margin: 15px 0;
+            padding: 10px;
+            background: #fff5f5;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Flashcard Generator</h1>
+
+    <div class="input-section">
+        <h2>Enter your study material:</h2>
+        <textarea id="text-input" placeholder="Paste your notes here..."></textarea>
+
+        <h3>Or upload a file:</h3>
+        <input type="file" id="file-input" accept=".pdf,.docx,.txt">
+        <p><small>Supported formats: PDF, DOCX, TXT (max 4MB)</small></p>
+
+        <div style="margin: 20px 0;">
+            <label>Number of flashcards (1-5): </label>
+            <input type="number" id="card-count" min="1" max="5" value="3" style="padding: 8px; width: 60px;">
+            <button id="generate-btn">Generate Flashcards</button>
+        </div>
+
+        <div id="status" class="status"></div>
+        <div id="error-message" class="error"></div>
+    </div>
+
+    <div id="flashcards-container"></div>
+
+    <script>
+        document.getElementById('generate-btn').addEventListener('click', async function() {
+            const btn = this;
+            const textInput = document.getElementById('text-input');
+            const fileInput = document.getElementById('file-input');
+            const cardCount = document.getElementById('card-count');
+            const statusDiv = document.getElementById('status');
+            const errorDiv = document.getElementById('error-message');
+            const flashcardsContainer = document.getElementById('flashcards-container');
+
+            // Reset UI
+            btn.disabled = true;
+            statusDiv.textContent = 'Generating flashcards...';
+            errorDiv.textContent = '';
+            flashcardsContainer.innerHTML = '';
+
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('text', textInput.value);
+            formData.append('num_cards', cardCount.value);
+            if (fileInput.files[0]) {
+                formData.append('file', fileInput.files[0]);
+            }
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Server responded with error');
+                }
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                displayFlashcards(data.cards || []);
+                statusDiv.textContent = `Successfully generated ${data.cards.length} flashcards!`;
+
+            } catch (error) {
+                errorDiv.textContent = `Error: ${error.message}`;
+                statusDiv.textContent = 'Failed to generate flashcards';
+
+                // Display sample cards if API fails
+                const sampleCards = [
+                    {question: "What is superintelligence?", answer: "Hypothetical AI surpassing human intelligence"},
+                    {question: "Name one benefit of AI", answer: "Increased efficiency through automation"},
+                    {question: "What is an AI ethical concern?", answer: "Issues around bias and privacy"}
+                ];
+                displayFlashcards(sampleCards.slice(0, parseInt(cardCount.value)));
+
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        function displayFlashcards(cards) {
+            const container = document.getElementById('flashcards-container');
+
+            if (!cards || cards.length === 0) {
+                container.innerHTML = '<div class="error">No flashcards were generated. Please try again.</div>';
+                return;
+            }
+
+            cards.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'flashcard';
+                cardElement.innerHTML = `
+                    <h3>Q${index + 1}: ${card.question || 'No question generated'}</h3>
+                    <div class="flashcard-answer">${card.answer || 'No answer generated'}</div>
+                    <button class="show-answer" onclick="this.previousElementSibling.style.display='block'">Show Answer</button>
+                `;
+                container.appendChild(cardElement);
+            });
+        }
+    </script>
+</body>
+</html>
